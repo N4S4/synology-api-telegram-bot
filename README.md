@@ -54,7 +54,8 @@ telegram
 
 ## Setting up configuration data
 
-After ```/start``` command you will find yourself in front of a keyboard, once all of your Synology data is entered
+After ```/start``` command, a new file 'conf' is created and will store your data permanently unless you cancel the file,
+you will find yourself in front of a keyboard, once all of your Synology data is entered
 you can click on ```Finish Configuration``` to proceed to the modules keyboard. <br>
 
 NOTE: if you click on ```Finish Configuration``` prior setting data, it allows you to explore modules and functions, 
@@ -77,5 +78,6 @@ configuration dictionary, I still have to figure out why but if you get no answe
 to check your 'conf' file.
 - Not sure why doesn't allow me to run it with local net ip_address, some issue with certificate verification 
 from request library, still working on it
-- many other that I still have to discover, fell free to open issues when you find.
+- You will see some unused functions in genera_functions, is for testing and will be removed later, don't stress yourself with those.
 - <b>If the Bot does not respond or seems blocked investigate into your console error output.</br>
+- Many other that I still have to discover, fell free to open issues when you find.
