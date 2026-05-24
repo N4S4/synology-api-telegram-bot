@@ -91,9 +91,9 @@ The bot uses `ALLOWED_USERS` to whitelist Telegram user IDs. Anyone not in the l
 Set it to your ID to lock everyone else out:
 
 ```bash
-export ALLOWED_USERS="159718277"
+export ALLOWED_USERS="123456788"
 # or multiple users:
-export ALLOWED_USERS="159718277,123456789"
+export ALLOWED_USERS="123456788,123456789"
 ```
 
 ## Docker
