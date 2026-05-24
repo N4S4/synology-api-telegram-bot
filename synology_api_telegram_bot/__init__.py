@@ -1,1 +1,3 @@
-from . import main_bot, messages, general_functions, syno_functions
+"""
+Synology API Telegram Bot — A Telegram bot for controlling Synology NAS.
+"""

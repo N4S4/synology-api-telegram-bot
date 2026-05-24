@@ -1,83 +1,136 @@
 # Synology API Telegram Bot
 
-The following is a telegram bot using [Synology Api](https://github.com/N4S4/synology-api) library to allow you to 
-interact to your NAS via Telegram
+A Telegram bot to control your Synology NAS via the [synology-api](https://github.com/N4S4/synology-api) library.
+
+## Features
+
+- **24 Synology modules** — 740+ API functions (FileStation, Docker, DownloadStation, Surveillance...)
+- **File Browser** — explore folders, search files, download files directly in Telegram
+- **Argument collection** — the bot asks for required parameters step by step
+- **Access control** — only whitelisted Telegram users can interact with the bot
+- **Secure** — password via `SYNOLOGY_PASSWORD` env var, config outside repo
+- **aiogram 3.x** — modern async Telegram Bot API with FSM per-chat state
 
 ## Premises
 
-It requires Python >= 3
+- **Python 3.9+** is required.
+- You should know how Telegram bots work — create one via [@BotFather](https://t.me/BotFather) first.
+- This bot is **not a finished product**. It works, but I can't guarantee it will handle every edge case. Use it at your own discretion.
+- You're expected to know some Python. Please do your research before opening issues — but feel free to reach out with real concerns.
+- The code still has room for polish. Contributions are welcome.
 
-It is assumed you know how Telegram and Telegram Bots work, most importantly how to make a new bot with BotFather </br>
-there is plenty guides on the web
+## Quick Start
 
-This bot is <b>NOT</b> a finished product therefore I cannot guarantee it will work all the times or properly.<br>
-Use it at your discretion and do not blame or sue me!
+```bash
+git clone https://github.com/N4S4/synology-api-telegram-bot.git
+cd synology-api-telegram-bot
+pip install -r requirements.txt
 
-It is also considered that if you are here and want to run a bot you know a bit of Python or coding. <br>
-Do not open Issues before doing your research (GoogleIt), write me for any concerns.
+# REQUIRED environment variables (see .env.example)
+export TELEGRAM_TOKEN="your_bot_token_here"
+export ALLOWED_USERS="123456789"      # Your Telegram user ID (from @userinfobot)
 
-It still requires work and fine-tuning, like messages and other useless console print.
+# Optional: set NAS password via env var instead of config file
+export SYNOLOGY_PASSWORD="your_nas_password"
+
+# Run the bot
+python -m synology_api_telegram_bot.main_bot
+```
+
+## Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `TELEGRAM_TOKEN` | Yes | Bot token from [@BotFather](https://t.me/BotFather) |
+| `ALLOWED_USERS` | Yes | Comma-separated Telegram user IDs. **Without this the bot refuses all connections.** |
+| `SYNOLOGY_PASSWORD` | No | NAS password override (falls back to config file) |
+
+> Get your Telegram user ID from [@userinfobot](https://t.me/userinfobot) — just send `/start`.
+
+## Usage
+
+### General workflow
+1. Send `/start` to your bot on Telegram
+2. Configure your NAS: IP, port, username, password, etc.
+3. Click **Finish Configuration**
+4. Choose a module (e.g., `core_sys_info`, `docker_api`)
+5. Click **login** to authenticate
+6. Select a function — the bot will ask for arguments if needed
+7. Results are returned as formatted JSON
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `/start` | Show configuration menu |
+| `/help` | Show help and workflow |
+| `/status` | Show connection status and config validation |
+| `/cancel` | Cancel current operation (arg collection, search, config) |
+
+### File Browser (`filestation` module)
+
+Select `filestation` from the module list to access a visual file browser:
+
+| Action | Description |
+|--------|-------------|
+| `📂 Browse Files` | Browse folders starting from `/home`. Tap `📁 folder` to enter, `⬆ Back` to go up, `🏠 Home` to reset. |
+| `🔍 Search Files` | Search files by pattern (e.g., `*.py`, `backup*`). Choose `/home` or type a custom path. Results are clickable. |
+| `📥 Download` | Download a selected file. The bot sends it as a Telegram document (max 50 MB). |
+| `ℹ️ File Info` | Show file metadata: path, size, owner, modification date. |
+| `📋 All Functions` | Access the raw 48 FileStation API functions with the standard keyboard. |
+
+## Access Control
+
+The bot uses `ALLOWED_USERS` to whitelist Telegram user IDs. Anyone not in the list gets:
+
+> ⛔ **User not recognized.**  
+> OUT OF MY STUFF!  
+> Device auto-destruction **ACTIVATED!**  
+> Your device CPU will burn in **1 minute**. 🔥
+
+Set it to your ID to lock everyone else out:
+
+```bash
+export ALLOWED_USERS="159718277"
+# or multiple users:
+export ALLOWED_USERS="159718277,123456789"
+```
+
+## Docker
+
+```bash
+docker build -t synology-telegram-bot .
+docker run \
+  -e TELEGRAM_TOKEN="your_token" \
+  -e ALLOWED_USERS="your_telegram_id" \
+  -e SYNOLOGY_PASSWORD="your_pass" \
+  synology-telegram-bot
+```
+
+## Modules Available
+
+| Category | Modules |
+|----------|---------|
+| **File** | FileStation, Drive Admin, USB Copy |
+| **System** | System Info, LogCenter, Security Advisor, Universal Search |
+| **Users** | User management, Group management, Shared Folders |
+| **Network** | DHCP Server, Directory Server, OAuth, VPN |
+| **Backup** | Active Backup for Business, Backup & Restore, Snapshot |
+| **Media** | AudioStation, DownloadStation, NoteStation, Photos |
+| **Containers** | Docker / Container Manager, Virtual Machine Manager |
+| **Security** | Surveillance Station (329 functions) |
+| **Cloud** | Cloud Sync |
+
+## Configuration
+
+Configuration is stored in `~/.config/synology-bot/config.json` (outside the repo for security).
 
 ## Consider My Work
 
-It takes time to work on project like this bla bla bla
-Just if you think this code is fun or useful, please cosider to buy me a coffe
-- Paypal: https://paypal.me/ren4s4
+This project takes time and effort to maintain. If you find it useful or fun, please consider supporting it:
 
+- **PayPal:** [paypal.me/ren4s4](https://paypal.me/ren4s4)
 
-## Installation
+## License
 
-- clone/download this repo <br><br>
-- cd synology-api-telegram-bot
-- run ```py setup.py install``` or ```python setup.py install``` 
-  or ```pip install git+https://github.com/N4S4/synology-api-telegram-bot```
-
-## Usage 
-
-Edit main_bot.py and add your bot TOKEN
-
-```bot = Bot(token='YOUR BOT TOKEN HERE')```
-
-from terminal cd repo folder and run: </br>
-
-```py main_bot.py``` or ```python main_bot.py```
-
-once start polling you will be able to use your bot in 
-telegram
-
-## If you do not want to Install
-
-- Download repo
-- ```pip install -r requirements.txt```
-- cd to repo folder
-- run ```py main_bot.py``` or ```python main_bot.py```
-
-## Setting up configuration data
-
-After ```/start``` command, a new file 'conf' is created and will store your data permanently unless you cancel the file,
-you will find yourself in front of a keyboard, once all of your Synology data is entered
-you can click on ```Finish Configuration``` to proceed to the modules keyboard. <br>
-
-NOTE: if you click on ```Finish Configuration``` prior setting data, it allows you to explore modules and functions, 
-but you will not be able to log in.
-
-## Using Modules and Function
-
-You are now on the module keyboard, you can go back to Configuration or click on a module. <br>
-Once a module is selected you will be in front of <b>functions</b> keyboard, </br>
-
-Prior to click on any function you will need to log in by clicking ```login``` button,
-It is required to log in before any further function action, or it will not reply to the message.
-
-If you want to change module by clicking ```Back o Modules``` the sesssion will log out automatically.
-
-## Issues and TODOs
-
-- Sometimes while setting configuration data might happen that the code adds an extra characters at the end of the 
-configuration dictionary, I still have to figure out why but if you get no answer while sending config values consider 
-to check your 'conf' file.
-- Not sure why doesn't allow me to run it with local net ip_address, some issue with certificate verification 
-from request library, still working on it
-- You will see some unused functions in genera_functions, is for testing and will be removed later, don't stress yourself with those.
-- <b>If the Bot does not respond or seems blocked investigate into your console error output.</br>
-- Many other that I still have to discover, fell free to open issues when you find.
+MIT

@@ -1,20 +1,73 @@
+"""
+General utility functions for the Synology API Telegram Bot.
+
+Handles configuration storage, module/function discovery, and keyboard generation.
+"""
 import inspect
 import json
+import logging
 import os
+from pathlib import Path
+from typing import Any, Optional
 
 import synology_api as syn
-from aiogram.dispatcher.filters.state import State, StatesGroup
-from aiogram.types import ReplyKeyboardMarkup  # for reply keyboard
+from aiogram.fsm.state import State, StatesGroup
 
-available_mods = {mod for mod in dir(syn) if not mod.startswith('__')}
+logger = logging.getLogger(__name__)
 
-available_mods_list = list(available_mods)
+# --- Configuration paths ---
+CONFIG_DIR = Path.home() / ".config" / "synology-bot"
+CONFIG_FILE = CONFIG_DIR / "config.json"
 
-config_data = {'ip_address', 'port', 'username', 'password', 'secure', 'cert_verify', 'dsm_version', 'debug', 'otp_code'}
-config_data_list = list(config_data)
+# --- Config schema ---
+CONFIG_KEYS = [
+    "ip_address", "port", "username", "password",
+    "secure", "cert_verify", "dsm_version", "debug", "otp_code"
+]
+
+# --- Synology API module names (auto-discovered) ---
+_EXCLUDED_MODULES = {
+    "error_codes", "base_api", "core_certificate", "core_package",
+    "utils", "vpn", "exceptions", "auth",
+}
+
+SYNO_MODULES = sorted(
+    m for m in dir(syn)
+    if not m.startswith("_") and m not in _EXCLUDED_MODULES
+)
+
+# --- Module descriptions for help ---
+MODULE_DESCRIPTIONS = {
+    "audiostation": "Audio Station - Music streaming",
+    "cloud_sync": "Cloud Sync - Sync with cloud providers",
+    "core_active_backup": "Active Backup for Business",
+    "core_backup": "Backup & Restore",
+    "core_group": "User Group management",
+    "core_share": "Shared Folder management",
+    "core_sys_info": "System Information & Status",
+    "core_user": "User management",
+    "dhcp_server": "DHCP Server",
+    "directory_server": "Directory Server (LDAP)",
+    "docker_api": "Docker / Container Manager",
+    "downloadstation": "Download Station",
+    "drive_admin_console": "Synology Drive Admin Console",
+    "filestation": "File Station",
+    "log_center": "Log Center",
+    "notestation": "Note Station",
+    "oauth": "OAuth & SSO",
+    "photos": "Synology Photos",
+    "security_advisor": "Security Advisor",
+    "snapshot": "Snapshot Replication",
+    "surveillancestation": "Surveillance Station",
+    "universal_search": "Universal Search",
+    "usb_copy": "USB Copy",
+    "virtualization": "Virtual Machine Manager",
+}
 
 
-class Form(StatesGroup):
+# --- FSM States ---
+class ConfigStates(StatesGroup):
+    """FSM states for configuration collection."""
     ip_address = State()
     port = State()
     username = State()
@@ -26,137 +79,179 @@ class Form(StatesGroup):
     otp_code = State()
 
 
-class RequiredArguments(StatesGroup):
-    argument_state = State()
+class ArgCollectStates(StatesGroup):
+    """FSM state for argument collection."""
+    waiting_for_arg = State()
 
 
-def button_generator():
-    button_gen = ReplyKeyboardMarkup(resize_keyboard=True)
-    return button_gen
+# --- Config file management ---
+
+def ensure_config_dir() -> None:
+    """Create config directory if it doesn't exist."""
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def check_db_exist():
-    if os.path.isfile('config'):
-        print('Database Exist.')
-        return True
-    else:
-        print('database does not exist creating...')
-        config = open('config', 'w')
-        initial_data = {}
-        for key in config_data:
-            initial_data[key] = ''
-        json_convert = json.dumps(initial_data)
-        json.dump(json_convert, config)
-        config.close()
+def ensure_config_file() -> None:
+    """Create config file with defaults if it doesn't exist."""
+    ensure_config_dir()
+    if not CONFIG_FILE.exists():
+        data = {key: "" for key in CONFIG_KEYS}
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(data, f, indent=2)
+        logger.info("Created config file at %s", CONFIG_FILE)
 
 
-def write_full_conf_to_db(dict):
-    f = open('config', 'w')
-    json_data = json.dumps(dict)
-    json.dump(json_data, f)
-    f.close()
-    return 'data written to db'
+def get_data_from_db() -> dict[str, str]:
+    """Read configuration from JSON file."""
+    ensure_config_dir()
+    try:
+        with open(CONFIG_FILE, "r") as f:
+            data = json.load(f)
+        return data
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        logger.warning("Config file error: %s, returning defaults", e)
+        return {key: "" for key in CONFIG_KEYS}
 
 
-def write_single_value_to_db(key, value):
-    f = open('config', 'r+')
+def write_full_conf_to_db(data: dict[str, str]) -> str:
+    """Write full configuration dict to file."""
+    ensure_config_dir()
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+    logger.info("Full config written to %s", CONFIG_FILE)
+    return "Configuration saved."
+
+
+def write_single_value_to_db(key: str, value: str) -> tuple[str, dict[str, str]]:
+    """Update a single config key and persist."""
+    ensure_config_dir()
     data = get_data_from_db()
-    if isinstance(data, str):  # this check if loaded data is dict or string
-        data = json.loads(data)
     data[key] = value
-    f.seek(0)
-    json.dump(data, f, indent=4)
-    f.close()
-    return 'data written to db ', data
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+    return f"'{key}' saved", data
 
 
-def get_syno_modules_name(return_list=None, return_dict=None):  # returns list or dict with modules name
-    modules_name_dict = {mod for mod in dir(syn) if not str(mod).startswith('__') and not str(mod).startswith('error_codes')}
-    modules_name_list = list(modules_name_dict)
+# --- Synology module discovery ---
 
-    if return_list:
-        return modules_name_list
-    elif return_dict:
-        return modules_name_dict
+def get_syno_modules_name() -> list[str]:
+    """Return list of usable Synology API module names."""
+    return SYNO_MODULES
 
 
-def get_syno_functions(module, return_list=None, return_dict=None, return_func_raw=None):  # returns list or dict with functions name
-    if isinstance(module, str):
-        module_string = module.replace('/', '')
-    else:
-        return 'Did you pass a string as module?'
-    module = getattr(syn, module_string)
-    classes = [cls_name for cls_name, cls_obj in inspect.getmembers(module) if inspect.isclass(cls_obj)]
-    func_raw = getattr(module, classes[0])
+def get_syno_functions(module_name: str) -> list[str]:
+    """
+    Get list of callable function names for a given Synology module.
 
-    class_name_dict = {func for func in dir(func_raw) if not func.startswith('__')}
-    class_name_list = list(class_name_dict)
+    Returns empty list if module not found or has no callable class.
+    """
+    if not isinstance(module_name, str):
+        return []
 
-    if return_list:
-        return class_name_list
-    elif return_dict:
-        return class_name_dict
-    elif return_func_raw:
-        return func_raw
+    clean_name = module_name.replace("/", "")
+    if clean_name not in SYNO_MODULES:
+        return []
 
+    module = getattr(syn, clean_name)
+    classes = [
+        c for c, _ in inspect.getmembers(module, inspect.isclass)
+        if c not in ("BaseApi", "MultipartEncoder", "BytesIO", "AESCipher")
+    ]
 
-def get_function_arguments(module, function):  # gets all arguments of a function
-    classes = get_syno_functions(module, return_func_raw=True)
-    arguments_raw = getattr(classes, function)
-    arg_string = str(inspect.signature(arguments_raw))
-    arg_list = arg_string.replace('(', '')
-    arg_list = arg_list.replace(')', '')
-    arg_list = arg_list.split(',')
+    if not classes:
+        return []
 
-    arguments_list = [var for var in arg_list if var != 'self' and var != 'api_name'
-                      and var != 'info' and var != 'api_path' and var != 'req_param']
-    return arguments_list
-
-
-def check_if_require_arguments(module=None, function=None, pass_session_raw=None):  # returns 3 results, a bool, the list of args and message
-    if not pass_session_raw:
-        list_of_args = [arg for arg in get_function_arguments(module, function)]
-    if pass_session_raw:
-        list_of_args = [arg for arg in pass_session_raw]
-    if not list_of_args:
-        return bool(list_of_args), None, f' {function} does not require any arguments \n'
-    elif list_of_args:
-        return bool(list_of_args), list_of_args, f'{function} requires the following arguments: \n {list_of_args}'
+    cls = getattr(module, classes[0])
+    funcs = [
+        f for f in dir(cls)
+        if not f.startswith("_")
+        and f not in ("logout", "shared_session", "login")
+        and callable(getattr(cls, f, None))
+    ]
+    return sorted(funcs)
 
 
-def get_all_function_lists(module_to_return=None, return_list=None, return_dict=None,
-                           return_full_func_list_for_handler=None):
-    dicti = {}
-    module_list = get_syno_modules_name(return_list=True)
-    big_list = []
-    for a in module_list:
-        dicti[a] = []
-    for key in dicti:
-        dicti[key] = get_syno_functions(module=key, return_list=True)
-
-    for key in dicti:
-        for value in dicti[key]:
-            big_list.append(value)
-
-    if module_to_return:
-        return dicti[module_to_return]
-    elif return_dict:
-        return dicti
-    elif return_list:
-        return list(dicti)
-    elif return_full_func_list_for_handler:
-        return big_list
+def get_function_arguments(module_name: str, function_name: str) -> list[str]:
+    """Get the argument names (excluding 'self' and internal params) for a function."""
+    classes = _get_module_class(module_name)
+    if classes is None:
+        return []
+    try:
+        func = getattr(classes, function_name)
+    except AttributeError:
+        return []
+    sig = inspect.signature(func)
+    excluded = {"self", "api_name", "info", "api_path", "req_param"}
+    return [p for p in sig.parameters if p not in excluded]
 
 
-#  functions = get_all_function_lists(return_dict=True)
+def _get_module_class(module_name: str) -> Optional[type]:
+    """Get the first usable class from a Synology module."""
+    if module_name not in SYNO_MODULES:
+        return None
+    module = getattr(syn, module_name)
+    classes = [
+        c for c, _ in inspect.getmembers(module, inspect.isclass)
+        if c not in ("BaseApi", "MultipartEncoder", "BytesIO", "AESCipher")
+    ]
+    if not classes:
+        return None
+    return getattr(module, classes[0])
 
 
-def get_data_from_db():
-    f = open('config', 'r+')
-    data = json.loads(f.read())
-    return data
+def check_if_require_arguments(
+    module_name: str, function_name: str
+) -> tuple[bool, Optional[list[str]], str]:
+    """
+    Check if a function requires arguments.
+
+    Returns:
+        (requires_args: bool, args_list: list | None, message: str)
+    """
+    args = get_function_arguments(module_name, function_name)
+    if not args:
+        return False, None, f"'{function_name}' requires no arguments."
+    return (
+        True,
+        args,
+        f"'{function_name}' requires: {', '.join(args)}",
+    )
 
 
-def one_time_first_message():
-    message = 'Welcome, this synology_api_telegram_bot uses N4S4/synology-api to allow to interact with your NAS. \n Enjoy using it'
-    return
+def get_all_function_lists() -> dict[str, list[str]]:
+    """Get all functions for all modules as {module: [functions]}."""
+    return {mod: get_syno_functions(mod) for mod in SYNO_MODULES}
+
+
+def flat_function_list() -> list[str]:
+    """Get a flat list of all function names across all modules."""
+    result = []
+    for funcs in get_all_function_lists().values():
+        result.extend(funcs)
+    return result
+
+
+# --- Validation ---
+
+def validate_config(data: dict[str, str]) -> list[str]:
+    """Validate configuration values, returns list of error messages."""
+    errors = []
+    if not data.get("ip_address", "").strip():
+        errors.append("IP address is required")
+    try:
+        port = int(data.get("port", "0"))
+        if not 1 <= port <= 65535:
+            errors.append("Port must be between 1 and 65535")
+    except ValueError:
+        errors.append("Port must be a number")
+    if not data.get("username", "").strip():
+        errors.append("Username is required")
+    if not data.get("password", "").strip():
+        errors.append("Password is required")
+    try:
+        dsm = int(data.get("dsm_version", "7"))
+        if dsm not in (6, 7):
+            errors.append("DSM version must be 6 or 7")
+    except ValueError:
+        errors.append("DSM version must be 6 or 7")
+    return errors
