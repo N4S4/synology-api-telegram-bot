@@ -50,20 +50,23 @@ def login(module_name: str) -> Any:
 
     import inspect as _inspect
     classes = [
-        c for c, _ in _inspect.getmembers(module, _inspect.isclass)
+        (c, cls_obj) for c, cls_obj in _inspect.getmembers(module, _inspect.isclass)
         if c not in ("BaseApi", "MultipartEncoder", "BytesIO", "AESCipher")
+        and cls_obj.__module__.startswith("synology_api")
     ]
     if not classes:
         raise ValueError(f"No usable class found in module '{module_name}'")
 
-    cls = getattr(module, classes[0])
+    # Use the first non-imported class defined in synology_api
+    cls_name, cls = classes[0]
+    logger.info("Using class: %s from %s", cls_name, cls.__module__)
 
     _session = cls(
         ip_address, port, username, password,
         secure, cert_verify, dsm_version, debug, otp_code,
     )
     _current_module = module_name
-    logger.info("Login successful — SID: %s", getattr(_session, "_sid", "unknown"))
+    logger.info("Login successful -- SID: %s", getattr(_session, "_sid", "unknown"))
     return _session
 
 

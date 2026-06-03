@@ -31,10 +31,22 @@ _EXCLUDED_MODULES = {
     "utils", "vpn", "exceptions", "auth",
 }
 
-SYNO_MODULES = sorted(
+# Hardcoded fallback: all known Synology API modules
+# (used if auto-discovery via dir(syn) returns empty)
+_FALLBACK_MODULES = [
+    "audiostation", "cloud_sync", "core_active_backup", "core_backup",
+    "core_group", "core_share", "core_sys_info", "core_user",
+    "dhcp_server", "directory_server", "docker_api", "downloadstation",
+    "drive_admin_console", "filestation", "log_center", "notestation",
+    "oauth", "photos", "security_advisor", "snapshot",
+    "surveillancestation", "universal_search", "usb_copy", "virtualization",
+]
+
+_discovered = sorted(
     m for m in dir(syn)
     if not m.startswith("_") and m not in _EXCLUDED_MODULES
 )
+SYNO_MODULES = _discovered if _discovered else _FALLBACK_MODULES
 
 # --- Module descriptions for help ---
 MODULE_DESCRIPTIONS = {
@@ -154,14 +166,15 @@ def get_syno_functions(module_name: str) -> list[str]:
 
     module = getattr(syn, clean_name)
     classes = [
-        c for c, _ in inspect.getmembers(module, inspect.isclass)
+        (c, cls_obj) for c, cls_obj in inspect.getmembers(module, inspect.isclass)
         if c not in ("BaseApi", "MultipartEncoder", "BytesIO", "AESCipher")
+        and cls_obj.__module__.startswith("synology_api")
     ]
 
     if not classes:
         return []
 
-    cls = getattr(module, classes[0])
+    cls_name, cls = classes[0]
     funcs = [
         f for f in dir(cls)
         if not f.startswith("_")
@@ -191,12 +204,13 @@ def _get_module_class(module_name: str) -> Optional[type]:
         return None
     module = getattr(syn, module_name)
     classes = [
-        c for c, _ in inspect.getmembers(module, inspect.isclass)
+        (c, cls_obj) for c, cls_obj in inspect.getmembers(module, inspect.isclass)
         if c not in ("BaseApi", "MultipartEncoder", "BytesIO", "AESCipher")
+        and cls_obj.__module__.startswith("synology_api")
     ]
     if not classes:
         return None
-    return getattr(module, classes[0])
+    return getattr(module, classes[0][0])
 
 
 def check_if_require_arguments(

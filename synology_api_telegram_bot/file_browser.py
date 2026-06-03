@@ -184,17 +184,22 @@ def download_file(file_path: str) -> Optional[str]:
             mode="download",
             dest_path=tmp_dir,
         )
-        if result.get("success"):
+        # get_file returns: None = success, str = error message
+        if isinstance(result, str):
+            logger.error("get_file failed for %s: %s", file_path, result)
+        elif result is None:
+            # Success -- file saved at dest_path/filename
             local_path = os.path.join(tmp_dir, file_name)
             if os.path.exists(local_path):
-                logger.info("Downloaded %s -> %s", file_path, local_path)
+                logger.info("Downloaded %s -> %s (%s bytes)",
+                            file_path, local_path, os.path.getsize(local_path))
                 return local_path
             else:
-                logger.error("Download claimed success but file not found: %s", local_path)
+                logger.error("get_file returned success but file not found: %s", local_path)
         else:
-            logger.error("Download failed: %s", result)
+            logger.error("Unexpected get_file return type %s: %s", type(result), result)
     except Exception as e:
-        logger.error("download_file(%s) failed: %s", file_path, e)
+        logger.error("download_file(%s) failed: %s", file_path, e, exc_info=True)
 
     return None
 

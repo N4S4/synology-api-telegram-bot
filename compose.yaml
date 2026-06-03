@@ -1,0 +1,10 @@
+services:
+  synology-telegram-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: synology-telegram-bot:v13
+    container_name: synology-telegram-bot
+    restart: unless-stopped
+    volumes:
+      - ./data/config:/root/.config/synology-bot

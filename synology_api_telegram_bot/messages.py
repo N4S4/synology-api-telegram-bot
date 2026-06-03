@@ -18,7 +18,7 @@ from . import general_functions as gn
 # ---------------------------------------------------------------------------
 
 WELCOME_MESSAGE = (
-    "🖥 <b>Synology API Telegram Bot</b>\n\n"
+    "<b>Synology API Telegram Bot</b>\n\n"
     "Interact with your Synology NAS via Telegram.\n"
     "Powered by <a href='https://github.com/N4S4/synology-api'>synology-api</a>\n\n"
     "<b>Getting started:</b>\n"
@@ -50,7 +50,7 @@ def functions_header(module_name: str) -> str:
     desc = gn.MODULE_DESCRIPTIONS.get(module_name, "")
     return (
         f"<b>{module_name}</b>"
-        + (f" — {desc}" if desc else "")
+        + (f" -- {desc}" if desc else "")
         + f"\nFunctions available: {len(funcs)}\n"
         "Use <b>login</b> first, then pick a function."
     )
@@ -58,14 +58,14 @@ def functions_header(module_name: str) -> str:
 
 HELP_MESSAGE = (
     "<b>Available Commands:</b>\n"
-    "/start — Show main menu\n"
-    "/help — Show this help\n"
-    "/status — Show connection status\n"
-    "/cancel — Cancel current operation\n\n"
+    "/start -- Show main menu\n"
+    "/help -- Show this help\n"
+    "/status -- Show connection status\n"
+    "/cancel -- Cancel current operation\n\n"
     "<b>Workflow:</b>\n"
-    "1. Configure NAS → Finish Configuration\n"
-    "2. Pick a module → Login\n"
-    "3. Choose a function → Provide args if needed\n"
+    "1. Configure NAS [RIGHTWARDS ARROW] Finish Configuration\n"
+    "2. Pick a module [RIGHTWARDS ARROW] Login\n"
+    "3. Choose a function [RIGHTWARDS ARROW] Provide args if needed\n"
     "4. Results are displayed as JSON\n\n"
     "<b>FileStation:</b>\n"
     "Select 'filestation' for a visual file browser with\n"
@@ -117,8 +117,8 @@ def functions_keyboard(module_name: str) -> ReplyKeyboardMarkup:
 def file_browser_menu() -> ReplyKeyboardMarkup:
     """Main FileStation menu with Browse/Search/Download."""
     return _build_keyboard([
-        ["📂 Browse Files", "🔍 Search Files"],
-        ["📋 All Functions"],
+        ["Browse Files", "Search Files"],
+        ["All Functions"],
         ["Back to Modules"],
     ])
 
@@ -126,16 +126,16 @@ def file_browser_menu() -> ReplyKeyboardMarkup:
 def file_browser_search_path_keyboard() -> ReplyKeyboardMarkup:
     """Quick-select paths for search."""
     return _build_keyboard([
-        ["🏠 /home", "/volume1"],
-        ["⬅ File Browser Menu"],
+        ["/home", "/volume1"],
+        ["File Browser Menu"],
     ])
 
 
 def file_browser_file_options() -> ReplyKeyboardMarkup:
     """Options when a file is selected."""
     return _build_keyboard([
-        ["📥 Download", "ℹ️ File Info"],
-        ["⬆ Back", "⬅ File Browser Menu"],
+        ["Download", "File Info"],
+        ["Back", "File Browser Menu"],
     ])
 
 

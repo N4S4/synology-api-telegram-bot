@@ -1,5 +1,5 @@
 """
-Synology API Telegram Bot — Main entry point.
+Synology API Telegram Bot -- Main entry point.
 
 A Telegram bot that lets you control your Synology NAS
 through the synology-api library, using aiogram 3.x.
@@ -33,17 +33,23 @@ from synology_api_telegram_bot import syno_functions as sf
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    stream=sys.stdout,
 )
 logger = logging.getLogger("syno_bot")
 
 # ---------------------------------------------------------------------------
 # Bot setup
 # ---------------------------------------------------------------------------
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "YOUR_BOT_TOKEN_HERE")
+# === EDIT THESE VALUES ===
+# Replace with your real token from @BotFather and your Telegram user ID(s).
+# Env vars (TELEGRAM_TOKEN, ALLOWED_USERS) take priority if set.
+_HARDCODED_TOKEN = "YOUR_BOT_TOKEN_HERE"
+_HARDCODED_USERS = "159718277"
 
-# Parse allowed users from env var (comma-separated Telegram user IDs)
-# If not set, the bot will NOT start — never leave your NAS open to the public.
-_raw_ids = os.environ.get("ALLOWED_USERS", "YOUR_USER_ID_HERE")
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", _HARDCODED_TOKEN)
+
+# Parse allowed users (comma-separated Telegram user IDs)
+_raw_ids = os.environ.get("ALLOWED_USERS", _HARDCODED_USERS)
 ALLOWED_USERS: set[int] = set()
 if _raw_ids:
     try:
@@ -98,10 +104,10 @@ class AccessControlMiddleware(BaseMiddleware):
             if bot_instance and chat_id:
                 await bot_instance.send_message(
                     chat_id,
-                    "⛔ <b>User not recognized.</b>\n\n"
+                    "[!] <b>User not recognized.</b>\n\n"
                     "OUT OF MY STUFF!\n"
                     "Device auto-destruction <b>ACTIVATED!</b>\n\n"
-                    "Your device CPU will burn in <b>1 minute</b>. 🔥",
+                    "Your device CPU will burn in <b>1 minute</b>.",
                 )
             return
 
@@ -142,10 +148,10 @@ FB_FILE_SELECTED = "file_selected"
 
 # File browser button prefixes (used for F.text matching)
 FILE_BROWSER_BUTTONS = [
-    "📂 Browse Files",
-    "🔍 Search Files",
-    "📋 All Functions",
-    "⬅ File Browser Menu",
+    "Browse Files",
+    "Search Files",
+    "All Functions",
+    "File Browser Menu",
 ]
 
 
@@ -164,9 +170,9 @@ async def _send_long_message(message: Message, text: str) -> None:
 
 def _format_result(data) -> str:
     if isinstance(data, dict) and "error" in data:
-        return f"❌ {data['error']}"
+        return f"{data['error']}"
     if isinstance(data, dict) and data.get("requires_args"):
-        return f"⚠️ {data.get('message', 'Arguments required')}"
+        return f"{data.get('message', 'Arguments required')}"
     try:
         formatted = json.dumps(data, indent=2, ensure_ascii=False, default=str)
         return f"<pre>{formatted}</pre>"
@@ -208,17 +214,17 @@ async def cmd_status(message: Message):
     errors = gn.validate_config(conf)
     lines = ["<b>Status</b>"]
     if info["logged_in"]:
-        lines.append(f"✅ Logged in — Module: <code>{info['module']}</code>")
+        lines.append(f"Logged in -- Module: <code>{info['module']}</code>")
         lines.append(f"Session: <code>{info['sid']}</code>")
     else:
-        lines.append("❌ Not logged in")
+        lines.append("Not logged in")
     lines.append(f"\n<b>Config:</b> NAS: <code>{conf.get('ip_address', '?')}:{conf.get('port', '?')}</code>")
     lines.append(f"User: <code>{conf.get('username', '?')}</code>")
     lines.append(f"DSM: <code>{conf.get('dsm_version', '?')}</code>")
     if errors:
-        lines.append(f"\n⚠️ Config issues: {', '.join(errors)}")
+        lines.append(f"\nConfig issues: {', '.join(errors)}")
     else:
-        lines.append("✅ Config looks valid")
+        lines.append("Config looks valid")
     await message.answer("\n".join(lines))
 
 
@@ -279,7 +285,7 @@ async def finish_configuration(message: Message, state: FSMContext):
     errors = gn.validate_config(conf)
     if errors:
         await message.answer(
-            f"⚠️ <b>Config warnings:</b>\n" + "\n".join(f"• {e}" for e in errors),
+            f"<b>Config warnings:</b>\n" + "\n".join(f"* {e}" for e in errors),
         )
     await message.answer(msg.FINISH_CONFIG_MESSAGE, reply_markup=msg.modules_keyboard())
 
@@ -304,7 +310,7 @@ async def filestation_menu(message: Message, state: FSMContext):
     await state.update_data(module="filestation", logged_in=False, fb_mode=FB_MENU)
     await _reset_args_state(state)
     await message.answer(
-        "📁 <b>FileStation — File Browser</b>\n\n"
+        "<b>FileStation -- File Browser</b>\n\n"
         "Choose an action:",
         reply_markup=msg.file_browser_menu(),
     )
@@ -312,7 +318,7 @@ async def filestation_menu(message: Message, state: FSMContext):
 
 @router.message(F.text.in_(gn.SYNO_MODULES))
 async def module_selected(message: Message, state: FSMContext):
-    """User selected a module — show its functions (skip filestation, handled above)."""
+    """User selected a module -- show its functions (skip filestation, handled above)."""
     module_name = message.text
     if module_name == "filestation":
         return  # Already handled by dedicated handler
@@ -340,13 +346,13 @@ async def do_login(message: Message, state: FSMContext):
         sid = getattr(sess, "_sid", "unknown")
         await state.update_data(logged_in=True)
         await message.answer(
-            f"✅ Logged in to <b>{module_name}</b>\n"
+            f"Logged in to <b>{module_name}</b>\n"
             f"Session: <code>{sid}</code>\n"
             "Now choose a function."
         )
     except Exception as e:
         logger.error("Login failed: %s", e)
-        await message.answer(f"❌ Login failed: {e}")
+        await message.answer(f"Login failed: {e}")
 
 
 @router.message(F.text == "logout")
@@ -354,7 +360,7 @@ async def do_logout(message: Message, state: FSMContext):
     sf.logout()
     fb.logout_session()
     await state.update_data(logged_in=False)
-    await message.answer("👋 Logged out.")
+    await message.answer("bye Logged out.")
 
 
 # ---------------------------------------------------------------------------
@@ -369,7 +375,7 @@ async def function_selected(message: Message, state: FSMContext):
         await message.answer("Select a module first.")
         return
     if not data.get("logged_in"):
-        await message.answer("⚠️ Use <b>login</b> first.")
+        await message.answer("Use <b>login</b> first.")
         return
 
     func_name = message.text
@@ -387,6 +393,245 @@ async def function_selected(message: Message, state: FSMContext):
     else:
         result = sf.function_action(func_name, module_name=module_name)
         await _send_long_message(message, _format_result(result))
+
+
+
+# ===========================================================================
+# FILE BROWSER HANDLERS
+# ===========================================================================
+# --- File Browser Menu buttons ---
+
+@router.message(F.text == "Browse Files")
+async def fb_start_browse(message: Message, state: FSMContext):
+    """Start browsing from the default home directory."""
+    logger.info("FILE BROWSER: Browse Files clicked, launching _fb_browse")
+    try:
+        await _fb_browse(message, state, path=fb.DEFAULT_HOME)
+    except Exception as e:
+        logger.error("FILE BROWSER: _fb_browse crashed: %s", e, exc_info=True)
+        await message.answer(f"Error browsing: {e}")
+
+
+@router.message(F.text == "Search Files")
+async def fb_start_search(message: Message, state: FSMContext):
+    """Start file search flow -- ask for path."""
+    logger.info("FILE BROWSER: Search Files clicked")
+    await state.update_data(fb_mode=FB_SEARCH_PATH)
+    await message.answer(
+        "<b>Search Files</b>\n\n"
+        "Which folder do you want to search?\n"
+        "Type a path (e.g. /home) or use the buttons:",
+        reply_markup=msg.file_browser_search_path_keyboard(),
+    )
+
+
+@router.message(F.text == "All Functions")
+async def fb_all_functions(message: Message, state: FSMContext):
+    """Show all raw FileStation functions."""
+    logger.info("FILE BROWSER: All Functions clicked")
+    await state.update_data(fb_mode=None, logged_in=False)
+    await message.answer(
+        msg.functions_header("filestation"),
+        reply_markup=msg.functions_keyboard("filestation"),
+    )
+
+
+@router.message(F.text == "File Browser Menu")
+async def fb_back_to_menu(message: Message, state: FSMContext):
+    """Return to the file browser main menu."""
+    await state.update_data(fb_mode=FB_MENU)
+    await message.answer(
+        "<b>FileStation -- File Browser</b>\nChoose an action:",
+        reply_markup=msg.file_browser_menu(),
+    )
+
+
+# --- Folder navigation ---
+
+@router.message(F.text.startswith("[D]"))
+async def fb_navigate_folder(message: Message, state: FSMContext):
+    """Navigate into a subfolder."""
+    data = await state.get_data()
+    fb_mode = data.get("fb_mode")
+    if fb_mode != FB_BROWSE:
+        return
+
+    folder_name = message.text[4:].strip()  # Remove "[D] " prefix
+    current_path = data.get("fb_path", fb.DEFAULT_HOME)
+    new_path = f"{current_path.rstrip('/')}/{folder_name}"
+    await _fb_browse(message, state, path=new_path)
+
+
+@router.message(F.text == "Back")
+async def fb_go_back(message: Message, state: FSMContext):
+    """Go to parent directory."""
+    data = await state.get_data()
+    fb_mode = data.get("fb_mode")
+    if fb_mode not in (FB_BROWSE, FB_FILE_SELECTED):
+        return
+
+    current_path = data.get("fb_path", fb.DEFAULT_HOME)
+    parent = str(Path(current_path).parent)
+    if not parent or parent == "/":
+        parent = "/"
+    await _fb_browse(message, state, path=parent)
+
+
+@router.message(F.text == "Home")
+async def fb_go_home(message: Message, state: FSMContext):
+    """Go to home directory."""
+    data = await state.get_data()
+    fb_mode = data.get("fb_mode")
+    if fb_mode not in (FB_BROWSE, FB_FILE_SELECTED):
+        return
+    await _fb_browse(message, state, path=fb.DEFAULT_HOME)
+
+
+# --- File selection and download ---
+
+@router.message(F.text.startswith("[F]"))
+async def fb_file_selected(message: Message, state: FSMContext):
+    """User tapped a file -- show file options."""
+    data = await state.get_data()
+    fb_mode = data.get("fb_mode")
+    if fb_mode not in (FB_BROWSE, FB_FILE_SELECTED):
+        return
+
+    file_name = message.text[4:].strip()  # Remove "[F] " prefix
+    current_path = data.get("fb_path", "")
+    file_path = f"{current_path.rstrip('/')}/{file_name}"
+
+    await state.update_data(
+        fb_mode=FB_FILE_SELECTED,
+        fb_selected=file_path,
+    )
+
+    # Try to get file size
+    size_str = ""
+    items = data.get("_fb_items", [])
+    for item in items:
+        if item["name"] == file_name:
+            size_str = f" -- {fb.format_size(item['size'])}"
+            break
+
+    await message.answer(
+        f"<b>{file_name}</b>{size_str}\n"
+        f"<code>{file_path}</code>",
+        reply_markup=msg.file_browser_file_options(),
+    )
+
+
+@router.message(F.text == "Download")
+async def fb_download_file(message: Message, state: FSMContext):
+    """Download the selected file and send it via Telegram."""
+    data = await state.get_data()
+    file_path = data.get("fb_selected")
+    if not file_path:
+        await message.answer("No file selected.")
+        return
+
+    file_name = Path(file_path).name
+    await message.answer(f"Downloading <b>{file_name}</b>...")
+
+    # Check file size
+    info = fb.get_file_info(file_path)
+    files_list = info.get("files", [])
+    if files_list:
+        size = files_list[0].get("additional", {}).get("size", 0)
+        if size > fb.MAX_DOWNLOAD_SIZE:
+            await message.answer(
+                f"File too large: {fb.format_size(size)}\n"
+                f"Telegram limit is {fb.format_size(fb.MAX_DOWNLOAD_SIZE)}."
+            )
+            return
+
+    # Download from NAS
+    local_path = fb.download_file(file_path)
+    if not local_path:
+        await message.answer("Download failed. Check logs.")
+        return
+
+    # Send as document
+    try:
+        doc = FSInputFile(local_path, filename=file_name)
+        await message.answer_document(
+            doc,
+            caption=f"{file_name}",
+        )
+        logger.info("Sent file: %s", file_name)
+    except Exception as e:
+        logger.error("Failed to send file: %s", e)
+        await message.answer(f"Failed to send: {e}")
+    finally:
+        # Clean up temp file
+        try:
+            os.remove(local_path)
+            os.rmdir(os.path.dirname(local_path))
+        except Exception:
+            pass
+
+
+@router.message(F.text == "File Info")
+async def fb_file_info(message: Message, state: FSMContext):
+    """Show detailed info for the selected file."""
+    data = await state.get_data()
+    file_path = data.get("fb_selected")
+    if not file_path:
+        await message.answer("No file selected.")
+        return
+
+    info = fb.get_file_info(file_path)
+    files_list = info.get("files", [])
+    if files_list:
+        f = files_list[0]
+        name = f.get("name", "?")
+        add = f.get("additional", {})
+        size = fb.format_size(add.get("size", 0))
+        owner = add.get("owner", {}).get("name", "?")
+        mtime = add.get("time", {}).get("mtime", "?")
+        isdir = f.get("isdir", False)
+        real_path = add.get("real_path", file_path)
+
+        lines = [
+            f"<b>{name}</b>",
+            f"Path: <code>{real_path}</code>",
+            f"Type: {'Folder' if isdir else 'File'}",
+            f"Size: {size}",
+            f"Owner: {owner}",
+        ]
+        if mtime:
+            from datetime import datetime
+            try:
+                dt = datetime.fromtimestamp(mtime)
+                lines.append(f"Modified: {dt.strftime('%Y-%m-%d %H:%M:%S')}")
+            except Exception:
+                pass
+
+        await message.answer("\n".join(lines))
+    else:
+        await message.answer(f"Could not get info for:\n<code>{file_path}</code>")
+
+
+# --- Search flow ---
+
+@router.message(F.text == "/home")
+async def fb_search_home(message: Message, state: FSMContext):
+    """Quick-select /home for search."""
+    data = await state.get_data()
+    if data.get("fb_mode") != FB_SEARCH_PATH:
+        return
+    await state.update_data(fb_mode=FB_SEARCH_TERM, fb_path="/home")
+    await message.answer("What to search? Type a pattern (e.g. <code>*.py</code>):")
+
+
+@router.message(F.text == "/volume1")
+async def fb_search_volume1(message: Message, state: FSMContext):
+    """Quick-select /volume1 for search."""
+    data = await state.get_data()
+    if data.get("fb_mode") != FB_SEARCH_PATH:
+        return
+    await state.update_data(fb_mode=FB_SEARCH_TERM, fb_path="/volume1")
+    await message.answer("What to search? Type a pattern (e.g. <code>*.py</code>):")
 
 
 # ===========================================================================
@@ -407,7 +652,7 @@ async def catch_all_handler(message: Message, state: FSMContext):
         _, _ = gn.write_single_value_to_db(config_key, value)
         await state.update_data(config_key=None)
         await message.reply(
-            f"✅ <b>{config_key}</b> = <code>{value}</code>\n"
+            f"<b>{config_key}</b> = <code>{value}</code>\n"
             "Saved. Choose another key or <b>Finish Configuration</b>.",
             reply_markup=msg.start_keyboard(),
         )
@@ -436,7 +681,7 @@ async def catch_all_handler(message: Message, state: FSMContext):
             await _send_long_message(message, _format_result(result))
         return
 
-    # 3. File browser — search path input
+    # 3. File browser -- search path input
     fb_mode = data.get("fb_mode")
     if fb_mode == FB_SEARCH_PATH:
         path_input = message.text.strip()
@@ -444,21 +689,21 @@ async def catch_all_handler(message: Message, state: FSMContext):
         await message.answer(f"Search in <code>{path_input}</code>. Type the pattern:")
         return
 
-    # 4. File browser — search term input
+    # 4. File browser -- search term input
     if fb_mode == FB_SEARCH_TERM:
         pattern = message.text.strip()
         folder_path = data.get("fb_path", "/home")
 
-        await message.answer(f"🔍 Searching <code>{pattern}</code> in <code>{folder_path}</code>...")
+        await message.answer(f"Searching <code>{pattern}</code> in <code>{folder_path}</code>...")
 
         result = fb.search_files(folder_path, pattern)
         if result.get("error"):
-            await message.answer(f"❌ {result['error']}")
+            await message.answer(f"{result['error']}")
             return
 
         items = result.get("items", [])
         if not items:
-            await message.answer(f"🔍 No results for <code>{pattern}</code>")
+            await message.answer(f"No results for <code>{pattern}</code>")
             return
 
         await state.update_data(
@@ -467,11 +712,11 @@ async def catch_all_handler(message: Message, state: FSMContext):
         )
 
         lines = [
-            f"🔍 <b>{len(items)} results</b> for <code>{pattern}</code> in <code>{folder_path}</code>:",
+            f"<b>{len(items)} results</b> for <code>{pattern}</code> in <code>{folder_path}</code>:",
             "",
         ]
         for item in items[:20]:
-            icon = "📁" if item["isdir"] else "📄"
+            icon = "[D]" if item["isdir"] else "[F]"
             size_str = "" if item["isdir"] else f" ({fb.format_size(item['size'])})"
             lines.append(f"{icon} <b>{item['name']}</b>{size_str}")
             lines.append(f"   <code>{item['path']}</code>")
@@ -483,9 +728,9 @@ async def catch_all_handler(message: Message, state: FSMContext):
         from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
         kb = ReplyKeyboardMarkup(
             keyboard=[
-                [KeyboardButton(text=f"{'📁' if item['isdir'] else '📄'} {item['name']}")]
+                [KeyboardButton(text=f"{'[D]' if item['isdir'] else '[F]'} {item['name']}")]
                 for item in items[:30]
-            ] + [[KeyboardButton(text="⬅ File Browser Menu")]],
+            ] + [[KeyboardButton(text="File Browser Menu")]],
             resize_keyboard=True,
         )
         await message.answer("Tap a file to download, or use the menu:", reply_markup=kb)
@@ -495,247 +740,16 @@ async def catch_all_handler(message: Message, state: FSMContext):
 
 
 # ===========================================================================
-# FILE BROWSER HANDLERS
-
-# --- File Browser Menu buttons ---
-
-@router.message(F.text == "📂 Browse Files")
-async def fb_start_browse(message: Message, state: FSMContext):
-    """Start browsing from the default home directory."""
-    await _fb_browse(message, state, path=fb.DEFAULT_HOME)
-
-
-@router.message(F.text == "🔍 Search Files")
-async def fb_start_search(message: Message, state: FSMContext):
-    """Start file search flow — ask for path."""
-    await state.update_data(fb_mode=FB_SEARCH_PATH)
-    await message.answer(
-        "🔍 <b>Search Files</b>\n\n"
-        "Which folder do you want to search?\n"
-        "Type a path (e.g. /home) or use the buttons:",
-        reply_markup=msg.file_browser_search_path_keyboard(),
-    )
-
-
-@router.message(F.text == "📋 All Functions")
-async def fb_all_functions(message: Message, state: FSMContext):
-    """Show all raw FileStation functions."""
-    await state.update_data(fb_mode=None, logged_in=False)
-    await message.answer(
-        msg.functions_header("filestation"),
-        reply_markup=msg.functions_keyboard("filestation"),
-    )
-
-
-@router.message(F.text == "⬅ File Browser Menu")
-async def fb_back_to_menu(message: Message, state: FSMContext):
-    """Return to the file browser main menu."""
-    await state.update_data(fb_mode=FB_MENU)
-    await message.answer(
-        "📁 <b>FileStation — File Browser</b>\nChoose an action:",
-        reply_markup=msg.file_browser_menu(),
-    )
-
-
-# --- Folder navigation ---
-
-@router.message(F.text.startswith("📁"))
-async def fb_navigate_folder(message: Message, state: FSMContext):
-    """Navigate into a subfolder."""
-    data = await state.get_data()
-    fb_mode = data.get("fb_mode")
-    if fb_mode != FB_BROWSE:
-        return
-
-    folder_name = message.text[1:].strip()  # Remove 📁 emoji
-    current_path = data.get("fb_path", fb.DEFAULT_HOME)
-    new_path = f"{current_path.rstrip('/')}/{folder_name}"
-    await _fb_browse(message, state, path=new_path)
-
-
-@router.message(F.text == "⬆ Back")
-async def fb_go_back(message: Message, state: FSMContext):
-    """Go to parent directory."""
-    data = await state.get_data()
-    fb_mode = data.get("fb_mode")
-    if fb_mode != FB_BROWSE:
-        return
-
-    current_path = data.get("fb_path", fb.DEFAULT_HOME)
-    parent = str(Path(current_path).parent)
-    if not parent or parent == "/":
-        parent = "/"
-    await _fb_browse(message, state, path=parent)
-
-
-@router.message(F.text == "🏠 Home")
-async def fb_go_home(message: Message, state: FSMContext):
-    """Go to home directory."""
-    data = await state.get_data()
-    fb_mode = data.get("fb_mode")
-    if fb_mode != FB_BROWSE:
-        return
-    await _fb_browse(message, state, path=fb.DEFAULT_HOME)
-
-
-# --- File selection and download ---
-
-@router.message(F.text.startswith("📄"))
-async def fb_file_selected(message: Message, state: FSMContext):
-    """User tapped a file — show file options."""
-    data = await state.get_data()
-    fb_mode = data.get("fb_mode")
-    if fb_mode not in (FB_BROWSE, FB_FILE_SELECTED):
-        return
-
-    file_name = message.text[1:].strip()
-    current_path = data.get("fb_path", "")
-    file_path = f"{current_path.rstrip('/')}/{file_name}"
-
-    await state.update_data(
-        fb_mode=FB_FILE_SELECTED,
-        fb_selected=file_path,
-    )
-
-    # Try to get file size
-    size_str = ""
-    items = data.get("_fb_items", [])
-    for item in items:
-        if item["name"] == file_name:
-            size_str = f" — {fb.format_size(item['size'])}"
-            break
-
-    await message.answer(
-        f"📄 <b>{file_name}</b>{size_str}\n"
-        f"<code>{file_path}</code>",
-        reply_markup=msg.file_browser_file_options(),
-    )
-
-
-@router.message(F.text == "📥 Download")
-async def fb_download_file(message: Message, state: FSMContext):
-    """Download the selected file and send it via Telegram."""
-    data = await state.get_data()
-    file_path = data.get("fb_selected")
-    if not file_path:
-        await message.answer("❌ No file selected.")
-        return
-
-    file_name = Path(file_path).name
-    await message.answer(f"⏳ Downloading <b>{file_name}</b>...")
-
-    # Check file size
-    info = fb.get_file_info(file_path)
-    files_list = info.get("files", [])
-    if files_list:
-        size = files_list[0].get("additional", {}).get("size", 0)
-        if size > fb.MAX_DOWNLOAD_SIZE:
-            await message.answer(
-                f"❌ File too large: {fb.format_size(size)}\n"
-                f"Telegram limit is {fb.format_size(fb.MAX_DOWNLOAD_SIZE)}."
-            )
-            return
-
-    # Download from NAS
-    local_path = fb.download_file(file_path)
-    if not local_path:
-        await message.answer("❌ Download failed. Check logs.")
-        return
-
-    # Send as document
-    try:
-        doc = FSInputFile(local_path, filename=file_name)
-        await message.answer_document(
-            doc,
-            caption=f"📄 {file_name}",
-        )
-        logger.info("Sent file: %s", file_name)
-    except Exception as e:
-        logger.error("Failed to send file: %s", e)
-        await message.answer(f"❌ Failed to send: {e}")
-    finally:
-        # Clean up temp file
-        try:
-            os.remove(local_path)
-            os.rmdir(os.path.dirname(local_path))
-        except Exception:
-            pass
-
-
-@router.message(F.text == "ℹ️ File Info")
-async def fb_file_info(message: Message, state: FSMContext):
-    """Show detailed info for the selected file."""
-    data = await state.get_data()
-    file_path = data.get("fb_selected")
-    if not file_path:
-        await message.answer("❌ No file selected.")
-        return
-
-    info = fb.get_file_info(file_path)
-    files_list = info.get("files", [])
-    if files_list:
-        f = files_list[0]
-        name = f.get("name", "?")
-        add = f.get("additional", {})
-        size = fb.format_size(add.get("size", 0))
-        owner = add.get("owner", {}).get("name", "?")
-        mtime = add.get("time", {}).get("mtime", "?")
-        isdir = f.get("isdir", False)
-        real_path = add.get("real_path", file_path)
-
-        lines = [
-            f"📄 <b>{name}</b>",
-            f"Path: <code>{real_path}</code>",
-            f"Type: {'📁 Folder' if isdir else '📄 File'}",
-            f"Size: {size}",
-            f"Owner: {owner}",
-        ]
-        if mtime:
-            from datetime import datetime
-            try:
-                dt = datetime.fromtimestamp(mtime)
-                lines.append(f"Modified: {dt.strftime('%Y-%m-%d %H:%M:%S')}")
-            except Exception:
-                pass
-
-        await message.answer("\n".join(lines))
-    else:
-        await message.answer(f"❌ Could not get info for:\n<code>{file_path}</code>")
-
-
-# --- Search flow ---
-
-@router.message(F.text == "🏠 /home")
-async def fb_search_home(message: Message, state: FSMContext):
-    """Quick-select /home for search."""
-    data = await state.get_data()
-    if data.get("fb_mode") != FB_SEARCH_PATH:
-        return
-    await state.update_data(fb_mode=FB_SEARCH_TERM, fb_path="/home")
-    await message.answer("What to search? Type a pattern (e.g. <code>*.py</code>):")
-
-
-@router.message(F.text == "/volume1")
-async def fb_search_volume1(message: Message, state: FSMContext):
-    """Quick-select /volume1 for search."""
-    data = await state.get_data()
-    if data.get("fb_mode") != FB_SEARCH_PATH:
-        return
-    await state.update_data(fb_mode=FB_SEARCH_TERM, fb_path="/volume1")
-    await message.answer("What to search? Type a pattern (e.g. <code>*.py</code>):")
-
-
-# ===========================================================================
 # Internal helpers for file browser
 # ===========================================================================
 
 async def _fb_browse(message: Message, state: FSMContext, path: str):
     """Browse a directory and show its contents."""
-    await message.answer(f"📂 Loading <code>{path}</code>...")
+    await message.answer(f"Loading <code>{path}</code>...")
 
     result = fb.list_directory(path)
     if result.get("error"):
-        await message.answer(f"❌ {result['error']}")
+        await message.answer(f"{result['error']}")
         return
 
     items = result.get("items", [])
@@ -743,7 +757,7 @@ async def _fb_browse(message: Message, state: FSMContext, path: str):
     has_more = result.get("has_more", False)
 
     # Build header
-    header = f"📂 <b>{path}</b>"
+    header = f"<b>{path}</b>"
     if total == 0:
         header += "\n<i>Empty folder</i>"
     else:
@@ -757,29 +771,29 @@ async def _fb_browse(message: Message, state: FSMContext, path: str):
 
     kb_rows = []
     for item in folders:
-        kb_rows.append([f"📁 {item['name']}"])
+        kb_rows.append([f"[D] {item['name']}"])
     for item in files_list:
-        kb_rows.append([f"📄 {item['name']}"])
+        kb_rows.append([f"[F] {item['name']}"])
 
     # Navigation row
-    nav_row = ["⬆ Back", "🏠 Home"]
+    nav_row = ["Back", "Home"]
     if has_more:
-        nav_row.append("📄⏩ More")
+        nav_row.append("More")
     kb_rows.append(nav_row)
-    kb_rows.append(["⬅ File Browser Menu"])
+    kb_rows.append(["File Browser Menu"])
 
     from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
     keyboard = []
     for item in folders:
-        keyboard.append([KeyboardButton(text=f"📁 {item['name']}")])
+        keyboard.append([KeyboardButton(text=f"[D] {item['name']}")])
     for item in files_list:
-        keyboard.append([KeyboardButton(text=f"📄 {item['name']}")])
+        keyboard.append([KeyboardButton(text=f"[F] {item['name']}")])
 
-    nav_row = [KeyboardButton(text="⬆ Back"), KeyboardButton(text="🏠 Home")]
+    nav_row = [KeyboardButton(text="Back"), KeyboardButton(text="Home")]
     if has_more:
-        nav_row.append(KeyboardButton(text="📄⏩ More"))
+        nav_row.append(KeyboardButton(text="More"))
     keyboard.append(nav_row)
-    keyboard.append([KeyboardButton(text="⬅ File Browser Menu")])
+    keyboard.append([KeyboardButton(text="File Browser Menu")])
 
     kb = ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
@@ -798,11 +812,13 @@ async def _fb_browse(message: Message, state: FSMContext, path: str):
 # ===========================================================================
 
 async def main():
-    if TELEGRAM_TOKEN == "YOUR_BOT_TOKEN_HERE":
+    if TELEGRAM_TOKEN in ("YOUR_BOT_TOKEN_HERE", "your_bot_token_here", ""):
         logger.error(
-            "TELEGRAM_TOKEN not set! "
-            "Set the environment variable or edit main_bot.py"
+            "TELEGRAM_TOKEN not set or still has the placeholder value! "
+            "Edit the .env file with your real bot token from @BotFather."
         )
+        # Small delay so Docker logs capture the message before exit
+        await asyncio.sleep(0.5)
         sys.exit(1)
 
     logger.info("Starting Synology API Telegram Bot...")
@@ -810,7 +826,12 @@ async def main():
     logger.info("Config file at %s", gn.CONFIG_FILE)
     logger.info("Available modules: %s", ", ".join(gn.SYNO_MODULES))
 
-    await dp.start_polling(bot)
+    try:
+        await dp.start_polling(bot)
+    except Exception as e:
+        logger.error("Bot crashed: %s", e)
+        await asyncio.sleep(0.5)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
