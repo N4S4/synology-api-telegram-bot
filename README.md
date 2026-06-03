@@ -8,7 +8,7 @@ A Telegram bot to control your Synology NAS via the [synology-api](https://githu
 - **File Browser** — explore folders, search files, download files directly in Telegram
 - **Argument collection** — the bot asks for required parameters step by step
 - **Access control** — only whitelisted Telegram users can interact with the bot
-- **Secure** — password via `SYNOLOGY_PASSWORD` env var, config outside repo
+- **Secure** — NAS password via `SYNOLOGY_PASSWORD` env var or config file, config stored outside repo
 - **aiogram 3.x** — modern async Telegram Bot API with FSM per-chat state
 
 ## Premises
@@ -26,26 +26,23 @@ git clone https://github.com/N4S4/synology-api-telegram-bot.git
 cd synology-api-telegram-bot
 pip install -r requirements.txt
 
-# REQUIRED environment variables (see .env.example)
-export TELEGRAM_TOKEN="your_bot_token_here"
-export ALLOWED_USERS="123456789"      # Your Telegram user ID (from @userinfobot)
-
-# Optional: set NAS password via env var instead of config file
-export SYNOLOGY_PASSWORD="your_nas_password"
-
-# Run the bot
+# Edit the hardcoded values in synology_api_telegram_bot/main_bot.py:
+#   _HARDCODED_TOKEN = "YOUR_BOT_TOKEN_HERE"   → your real token
+#   _HARDCODED_USERS = "159718277"             → your Telegram user ID
+# Then run:
 python -m synology_api_telegram_bot.main_bot
 ```
 
-## Environment Variables
+## Configuration
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `TELEGRAM_TOKEN` | Yes | Bot token from [@BotFather](https://t.me/BotFather) |
-| `ALLOWED_USERS` | Yes | Comma-separated Telegram user IDs. **Without this the bot refuses all connections.** |
-| `SYNOLOGY_PASSWORD` | No | NAS password override (falls back to config file) |
+**Bot credentials:** Edit the hardcoded values at the top of `synology_api_telegram_bot/main_bot.py`:
 
-> Get your Telegram user ID from [@userinfobot](https://t.me/userinfobot) — just send `/start`.
+- `_HARDCODED_TOKEN` — bot token from [@BotFather](https://t.me/BotFather)
+- `_HARDCODED_USERS` — comma-separated Telegram user IDs (get yours from [@userinfobot](https://t.me/userinfobot))
+
+These values are baked into the source. Environment variables (`TELEGRAM_TOKEN`, `ALLOWED_USERS`) take priority if set, but the compose file does not inject them — the hardcoded values are authoritative.
+
+**NAS connection:** Stored in `~/.config/synology-bot/config.json` (outside the repo for security), configured interactively via `/start`.
 
 ## Usage
 
@@ -88,15 +85,24 @@ The bot uses `ALLOWED_USERS` to whitelist Telegram user IDs. Anyone not in the l
 > Device auto-destruction **ACTIVATED!**  
 > Your device CPU will burn in **1 minute**. 🔥
 
-Set it to your ID to lock everyone else out:
+Set it in `main_bot.py` to lock everyone else out:
 
-```bash
-export ALLOWED_USERS="123456788"
+```python
+_HARDCODED_USERS = "159718277"
 # or multiple users:
-export ALLOWED_USERS="123456788,123456789"
+_HARDCODED_USERS = "159718277,123456789"
 ```
 
 ## Docker
+
+Edit `_HARDCODED_TOKEN` and `_HARDCODED_USERS` in `main_bot.py` first, then:
+
+```bash
+docker compose build --no-cache
+docker compose up -d
+```
+
+Or with plain `docker run` (env vars override hardcoded values if you prefer):
 
 ```bash
 docker build -t synology-telegram-bot .

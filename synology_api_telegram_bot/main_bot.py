@@ -44,7 +44,7 @@ logger = logging.getLogger("syno_bot")
 # Replace with your real token from @BotFather and your Telegram user ID(s).
 # Env vars (TELEGRAM_TOKEN, ALLOWED_USERS) take priority if set.
 _HARDCODED_TOKEN = "YOUR_BOT_TOKEN_HERE"
-_HARDCODED_USERS = "159718277"
+_HARDCODED_USERS = "YOUR_USER_ID_HERE"
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", _HARDCODED_TOKEN)
 
